@@ -190,6 +190,7 @@ class CFBaseCheck(BaseCheck):
         :return: List of results
         """
 
+        import pdb; pdb.set_trace()
         ret_val = OrderedDict()
         grid_mapping_variables = cfutil.get_grid_mapping_variables(ds)
 
@@ -968,14 +969,14 @@ class CFBaseCheck(BaseCheck):
             # TODO check for np.nan separately
             if underlying_dtype is None:
                 return [False,
-                        "{} must be a numeric numpy datatype"]
+                        "{} must be a numeric type"]
 
             # both D and N should be some kind of numeric value
             is_numeric = np.issubdtype(underlying_dtype, np.number)
             if attr_type == 'N':
                 if not is_numeric:
                     return [False,
-                            "{} must be numeric"]
+                            "{} must be a numeric type"]
             elif attr_type == 'D':
                 # TODO: handle edge case where variable is unset here
                 var_dtype = getattr(variable, 'dtype', None)
@@ -4604,7 +4605,9 @@ class CF1_7Check(CF1_6Check):
 
     def check_grid_mapping(self, ds):
         __doc__ = super(CF1_7Check, self).check_grid_mapping.__doc__
+        import pdb; pdb.set_trace()
         prev_return = super(CF1_7Check, self).check_grid_mapping(ds)
+        import pdb; pdb.set_trace()
         ret_val = []
         grid_mapping_variables = cfutil.get_grid_mapping_variables(ds)
         for var_name in sorted(grid_mapping_variables):
