@@ -789,39 +789,254 @@ class IOOS1_2Check(IOOSNCCheck):
                 )
         return results
 
-    def check_platform_variable_cf_role(self, ds):
+    #def check_platform_variable_cf_role(self, ds):
+    #    """
+    #    Verify that any platform variables have valid CF roles
+
+    #    Args:
+    #        ds (netCDF-4 Dataset): open Dataset object
+
+    #    Returns:
+    #        list of Result objects
+    #    """
+    #    valid_cf_roles = {"timeseries_id", "profile_id", "trajectory_id"}
+
+    #    cf_role_results = []
+    #    for var in self.platform_vars:
+    #        attr_check(
+    #            ("cf_role", valid_cf_roles),
+    #            ds,
+    #            BaseCheck.HIGH,
+    #            cf_role_results,
+    #            var_name=var.name,
+    #        )
+    #    # there should really only be one platform variable, but in case
+    #    # someone mistakenly puts multiple, print out any errors for each,
+    #    # as multiple platform vars will raise its own separate errors
+    #    for result in cf_role_results:
+    #        if result.value[0] != 2:
+    #            result.msgs[0] = (
+    #                'Platform variable "{}" must have a '
+    #                "cf_role attribute with one of the "
+    #                "values {}".format(result.variable_name, sorted(valid_cf_roles))
+    #            )
+
+    #    return cf_role_results
+    def check_cf_role_variables(self, ds):
         """
-        Verify that any platform variables have valid CF roles
+        The IOOS-1.2 specification details the following requirements regarding
+        the cf_role attribute and its relation to variable dimensionality:
+        
+          cf_role may be applied to the "Platform Variable", as indicated by
+          geophysical_variable:platform, but it may also be an independent
+          variable. To comply with the single platform per dataset rule of
+          the IOOS Metadata Profile, the cf_role variable will typically
+          have a dimension of 1, unless it is a TimeSeries dataset following
+          the 'TimeSeries - multiple station' format.
 
-        Args:
-            ds (netCDF-4 Dataset): open Dataset object
+        To summarize the rules checked in this method:
+          - 'timeseries' or 'timeseries - single station', cf_role var must have dim 1
+          - 'timeseries - multiple station' can have cf_role var dim > 1
+          - 'timeseriesprofile' or 'timeseriesprofile - single station' must have
+            cf_role=timeseries_id variable have dim 1 and dim of cf_role=profile_id
+            can be > 1
+          - 'trajectory' or 'trajectoryprofile' variable with cf_role=trajectory_id
+            must have dim 1, cf_role=profile_id variable can be > 1
 
-        Returns:
-            list of Result objects
+        Relevant documentation found in the specification as well as GitHub issues:
+        https://github.com/ioos/compliance-checker/issues/748#issuecomment-606659685
+        https://github.com/ioos/compliance-checker/issues/828
         """
-        valid_cf_roles = {"timeseries_id", "profile_id", "trajectory_id"}
 
-        cf_role_results = []
-        for var in self.platform_vars:
-            attr_check(
-                ("cf_role", valid_cf_roles),
-                ds,
-                BaseCheck.HIGH,
-                cf_role_results,
-                var_name=var.name,
-            )
-        # there should really only be one platform variable, but in case
-        # someone mistakenly puts multiple, print out any errors for each,
-        # as multiple platform vars will raise its own separate errors
-        for result in cf_role_results:
-            if result.value[0] != 2:
-                result.msgs[0] = (
-                    'Platform variable "{}" must have a '
-                    "cf_role attribute with one of the "
-                    "values {}".format(result.variable_name, sorted(valid_cf_roles))
-                )
+        # establish a passing Result object
+        good_result = Result(BaseCheck.HIGH, True, sec_id, [])
 
-        return cf_role_results
+        fType = getattr(ds, "featureType", None)
+        if (not fType) or (not isinstance(fType, str)): # can't do anything, pass
+            return Result(BaseCheck.MEDIUM, True, sec_id, [])
+        featType = fType.lower()
+
+        sec_id = "cf_role variable(s)" # what section this is relating to
+
+        # get names of platform variables, as the variable which contains
+        # the cf_role attr can be a dimensionless platform variable
+        platform_var_names = []
+        for v in ds.variables.values():
+        try:
+            platform_var_names.append(getattr(ds, "platform", None))
+        except AttributeError as e: # not found
+            continue
+
+        generic_msg = ("Dimension length of non-platform variable with cf_role={cf_role} "
+                   " (the '{dim_type}' dimension) is {dim_len}.")
+
+        ts_msg = ("The IOOS Profile restricts timeSeries and timeSeries - single station "
+                  "datasets with multiple features to share the same lat/lon position "
+                  "(i.e. to exist on the same platform). Datasets that include multiple "
+                  "platforms are not valid and will cause harvesting errors.")
+
+        ts_multi_msg =  ("Datasets with featureType='timeseries - multiple station' are permitted "
+                         "to have variables with a cf_role=timeseries_id have a dimension >= 1")
+
+        ts_prof_msg = ("The IOOS profile restricts timeSeriesProfile datasets to a "
+                       "single platform (ie. station) per dataset.")
+
+        trj_prof_msg = ("The IOOS profile restricts trjectory and trajectoryProfile "
+                        "datasets to a single platform (ie. trajectory) per dataset.")
+
+        prof_msg = ("The IOOS profile restricts profile datasets to a single "
+                    "platform (ie. profile) per dataset.")
+
+
+        if featType in [
+            "timeseries - multiple station",
+            "timeseries - single station",
+            "timeseries"]:
+
+            # TODO
+            return self._check_feattype_timeseries_cf_role(ds)
+
+            ## looking for cf_role=timeseries_id
+            #cf_role_vars = ds.get_variables_by_attributes(cf_role="timeseries_id")
+            #if (not cf_role_vars) or (len(cf_role_vars) > 1):
+            #    return Result(
+            #        BaseCheck.MEDIUM,
+            #        False,
+            #        sec_id,
+            #        ["None or multiple variables found with cf_role=timeseries_id; only one is allowed"]
+            #        )
+
+            #_v = cf_role_variables[0]
+            ## is this a platform variable?
+            #if _v.name in platform_var_names:
+            #    return good_result
+            #elif (featType=="timeseries" or featType=="timeseries - single station") and _v.size != 1:
+            #    return Result(BaseCheck.HIGH, False, sec_id, [
+            #        " ".join([
+            #            generic_msg.format(cf_role="timeseries_id", dim_type="station", dim_size=_v.size),
+            #            ts_msg])])
+            #        
+            #elif (featType=="timeseries - multiple station") and _v.size < 1:
+            #    return Result(BaseCheck.HIGH, False, sec_id, [
+            #        " ".join([
+            #            generic_msg.format(cf_role="timeseries_id", dim_type="station", dim_size=_v.size),
+            #            ts_msg, ts_multi_msg])])
+
+            #else:
+            #    return good_result
+
+        elif featType in ["timeseriesprofile", "timeseriesprofile - single station"]:
+
+            # TODO
+            return self._check_feattype_timeseriesprof_cf_role(ds)
+
+            ## looking for cf_roles timeseries_id and profile_id
+            #cf_role_vars = [] # extend in specific order for easier checking
+            #cf_role_vars.extend(ds.get_variables_by_attributes(cf_role="timeseries_id"))
+            #cf_role_vars.extend(ds.get_variables_by_attributes(cf_role="profile_id"))
+
+            #if len(cf_role_vars) != 2:
+            #    return Result(BaseCheck.HIGH, False, sec_id, [
+            #        ("Datasets of featureType=timeSeriesProfile must have variables "
+            #         "containing cf_role=timeseries_id and cf_role=profile_id")])
+
+            ## platform variables?
+            #if all((v.name in platform_var_names for v in cf_role_vars)):
+            #    return good_result
+
+            #elif cf_role_vars[0].size != 1 or # timeseries_id
+            #   cf_role_vars[1].size < 1: # profile_id
+            #    return Result(BaseCheck.HIGH, False, sec_id, [
+            #        " ".join([
+            #            generic_msg.format(cf_role="timeseries_id", dim_type="station", dim_size=cf_role_vars[0].size),
+            #            generic_msg.format(cf_role="profile_id", dim_type="profile", dim_size=cf_role_vars[1].size),
+            #            ts_prof_msg])])
+            #       
+            #else:
+            #    return good_result
+
+        elif featType == "trajectory":
+
+            # TODO
+            return self._check_feattype_trajectory_cf_role(ds)
+
+            #cf_role_vars = ds.get_variables_by_attributes(cf_role="trajectory_id")
+
+            #if len(cf_role_vars) != 1:
+            #    return Result(BaseCheck.HIGH, False, sec_id, [
+            #        ("Datasets of featureType=trajectory must have a variable "
+            #         "containing cf_role=trajectory_id")])
+
+            #_v = cf_role_vars[0]
+            ## platform variable?
+            #if _v.name in platform_var_names:
+            #    return good_result
+
+            #elif _v.size != 1:
+            #    return Result(BaseCheck.HIGH, False, sec_id, [
+            #        " ".join([
+            #            generic_msg.format(cf_role="trajectory_id", dim_type="station", dim_size=_v.size),
+            #            trj_prof_msg])])
+            #else:
+            #    return good_result
+
+        elif featType == "trajectoryprofile"
+
+            # TODO
+            return self._check_feattype_trajprof_cf_role(ds)
+
+            ## looking for cf_roles trajectory_id and profile_id
+            #cf_role_vars = [] # extend in specific order for easier checking
+            #cf_role_vars.extend(ds.get_variables_by_attributes(cf_role="trajectory_id"))
+            #cf_role_vars.extend(ds.get_variables_by_attributes(cf_role="profile_id"))
+
+            #if len(cf_role_vars) != 2:
+            #    return Result(BaseCheck.HIGH, False, sec_id, [
+            #        ("Datasets of featureType=trajectoryProfile must have variables "
+            #         "containing cf_role=trajectory_id and cf_role=profile_id")])
+
+            ## platform variables?
+            #if cf_role_vars[0].name in platform_var_names:
+            #    return good_result
+
+            #elif cf_role_vars[0].size != 1: # trajectory_id
+            #    return Result(BaseCheck.HIGH, False, sec_id, [
+            #        " ".join([
+            #            generic_msg.format(cf_role="trajectory_id", dim_type="station", dim_size=cf_role_vars[0].size),
+            #            generic_msg.format(cf_role="profile_id", dim_type="profile", dim_size=cf_role_vars[1].size),
+            #            trj_prof_msg])])
+            #       
+            #else:
+            #    return good_result
+
+        elif featType == "profile":
+
+            # TODO
+            return self._check_feattype_profile_cf_role(ds)
+
+            ## looking for cf_role=profile_id
+            #cf_role_vars = ds.get_variables_by_attributes(cf_role="profile_id")
+            #if (not cf_role_vars) or (len(cf_role_vars) > 1):
+            #    return Result(
+            #        BaseCheck.MEDIUM,
+            #        False,
+            #        sec_id,
+            #        ["None or multiple variables found with cf_role=timeseries_id; only one is allowed"]
+            #        )
+
+            #_v = cf_role_variables[0]
+            #elif _v.size != 1:
+            #    return Result(BaseCheck.HIGH, False, sec_id, [
+            #        " ".join([
+            #            generic_msg.format(cf_role="profile_id", dim_type="profile", dim_size=_v.size),
+            #            prof_msg])])
+
+            #else:
+            #    return good_result
+
+        else:
+            return good_result # can't do anything
+
 
     def check_creator_and_publisher_type(self, ds):
         """
