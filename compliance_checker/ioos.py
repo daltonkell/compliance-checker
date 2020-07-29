@@ -854,10 +854,6 @@ class IOOS1_2Check(IOOSNCCheck):
         featType = fType.lower()
 
 
-        prof_msg = ("The IOOS profile restricts profile datasets to a single "
-                    "platform (ie. profile) per dataset.")
-
-
         if featType in [
             "timeseries - multiple station",
             "timeseries - single station",
@@ -874,37 +870,14 @@ class IOOS1_2Check(IOOSNCCheck):
             return self._check_feattype_trajprof_cf_role(ds)
 
         elif featType == "profile":
-
-            # TODO
-            #return self._check_feattype_profile_cf_role(ds)
-            raise NotImplementedError
-
-            ## looking for cf_role=profile_id
-            #cf_role_vars = ds.get_variables_by_attributes(cf_role="profile_id")
-            #if (not cf_role_vars) or (len(cf_role_vars) > 1):
-            #    return Result(
-            #        BaseCheck.MEDIUM,
-            #        False,
-            #        sec_id,
-            #        ["None or multiple variables found with cf_role=timeseries_id; only one is allowed"]
-            #        )
-
-            #_v = cf_role_variables[0]
-            #elif _v.size != 1:
-            #    return Result(BaseCheck.HIGH, False, sec_id, [
-            #        " ".join([
-            #            generic_msg.format(cf_role="profile_id", dim_type="profile", dim_size=_v.size),
-            #            prof_msg])])
-
-            #else:
-            #    return good_result
+            return self._check_feattype_profile_cf_role(ds)
 
         else:
             return good_result # can't do anything
 
     def _check_feattype_timeseries_cf_role(self, ds):
 
-        featType = getattr(ds, "featureTupe", "").lower()
+        featType = getattr(ds, "featureType", "").lower()
         good_result = Result(BaseCheck.HIGH, True, "cf_role variables", [])
         generic_msg = ("Dimension length of non-platform variable with cf_role={cf_role} "
                    " (the '{dim_type}' dimension) is {dim_len}.")
@@ -941,7 +914,7 @@ class IOOS1_2Check(IOOSNCCheck):
         if _v in platform_vars:
             return good_result
 
-        elif _dimsize != 1:
+        elif ((featType=="timeseries" or featType=="timeseries - single station") and _dimsize != 1):
             return Result(BaseCheck.HIGH, False, "cf_role variables", [
                 " ".join([
                     generic_msg.format(cf_role="timeseries_id", dim_type="station", dim_len=_dimsize),
@@ -1034,7 +1007,7 @@ class IOOS1_2Check(IOOSNCCheck):
         else:
             return Result(BaseCheck.HIGH, True, "cf_role variables", [])
 
-    def _check_feattype_trajectoryprof_cf_role(seldf, ds):
+    def _check_feattype_trajectoryprof_cf_role(self, ds):
         generic_msg = ("Dimension length of non-platform variable with cf_role={cf_role} "
                    " (the '{dim_type}' dimension) is {dim_len}.")
 
@@ -1073,6 +1046,40 @@ class IOOS1_2Check(IOOSNCCheck):
                
         else:
             return Result(BaseCheck.HIGH, True, "cf_role variables", [])
+
+    def _check_feattype_profile_cf_role(self, ds):
+        generic_msg = ("Dimension length of non-platform variable with cf_role={cf_role} "
+                   " (the '{dim_type}' dimension) is {dim_len}.")
+
+        prof_msg = ("The IOOS profile restricts profile datasets to a single "
+                    "platform (ie. profile) per dataset.")
+
+        # looking for cf_role=profile_id
+        cf_role_vars = ds.get_variables_by_attributes(cf_role="profile_id")
+        if (not cf_role_vars) or (len(cf_role_vars) > 1):
+            return Result(
+                BaseCheck.MEDIUM,
+                False,
+                "cf_role variables",
+                ["None or multiple variables found with cf_role=profile_id; only one is allowed"]
+                )
+
+        _v = cf_role_vars[0]
+        _dims = _v.get_dims()
+        if not _dims:
+            _dimsize = 0
+        else:
+            _dimsize = _dims[0].size
+
+        if _dimsize != 1:
+            return Result(BaseCheck.HIGH, False, "cf_role_variables", [
+                " ".join([
+                    generic_msg.format(cf_role="profile_id", dim_type="profile", dim_len=_dimsize),
+                    prof_msg])])
+
+        else:
+            return Result(BaseCheck.HIGH, True, "cf_role variables", [])
+
 
     def check_creator_and_publisher_type(self, ds):
         """
