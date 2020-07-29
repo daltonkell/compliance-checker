@@ -789,39 +789,6 @@ class IOOS1_2Check(IOOSNCCheck):
                 )
         return results
 
-    #def check_platform_variable_cf_role(self, ds):
-    #    """
-    #    Verify that any platform variables have valid CF roles
-
-    #    Args:
-    #        ds (netCDF-4 Dataset): open Dataset object
-
-    #    Returns:
-    #        list of Result objects
-    #    """
-    #    valid_cf_roles = {"timeseries_id", "profile_id", "trajectory_id"}
-
-    #    cf_role_results = []
-    #    for var in self.platform_vars:
-    #        attr_check(
-    #            ("cf_role", valid_cf_roles),
-    #            ds,
-    #            BaseCheck.HIGH,
-    #            cf_role_results,
-    #            var_name=var.name,
-    #        )
-    #    # there should really only be one platform variable, but in case
-    #    # someone mistakenly puts multiple, print out any errors for each,
-    #    # as multiple platform vars will raise its own separate errors
-    #    for result in cf_role_results:
-    #        if result.value[0] != 2:
-    #            result.msgs[0] = (
-    #                'Platform variable "{}" must have a '
-    #                "cf_role attribute with one of the "
-    #                "values {}".format(result.variable_name, sorted(valid_cf_roles))
-    #            )
-
-    #    return cf_role_results
     def check_cf_role_variables(self, ds):
         """
         The IOOS-1.2 specification details the following requirements regarding
@@ -880,7 +847,7 @@ class IOOS1_2Check(IOOSNCCheck):
         featType = getattr(ds, "featureType", "").lower()
         good_result = Result(BaseCheck.HIGH, True, "cf_role variables", [])
         generic_msg = ("Dimension length of non-platform variable with cf_role={cf_role} "
-                   " (the '{dim_type}' dimension) is {dim_len}.")
+                   "(the '{dim_type}' dimension) is {dim_len}.")
 
         ts_msg = ("The IOOS Profile restricts timeSeries and timeSeries - single station "
                   "datasets with multiple features to share the same lat/lon position "

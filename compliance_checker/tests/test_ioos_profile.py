@@ -678,37 +678,6 @@ class TestIOOS1_2(BaseTestCase):
         v = IOOS1_2_PlatformIDValidator()
         self.assertFalse(v.validate(attn, attv)[0])
 
-    #def test_check_platform_cf_role(self):
-    #    """
-    #    Check that cf_role inside platform variables only allows certain
-    #    values, namely "profile_id", "timeseries_id", or "trajectory_id"
-    #    """
-    #    ds = MockTimeSeries()
-    #    plat_var = ds.createVariable("platform", np.int8, ())
-    #    ds.variables["depth"].platform = "platform"
-    #    self.ioos.setup(ds)
-    #    results = self.ioos.check_platform_variable_cf_role(ds)
-    #    # don't set attribute, should raise error about attribute not
-    #    # existing
-    #    self.assertEqual(len(results), 1)
-    #    score, out_of = results[0].value
-    #    self.assertLess(score, out_of)
-    #    # set to invalid value
-    #    plat_var.setncattr("cf_role", "bad_value")
-    #    results = self.ioos.check_platform_variable_cf_role(ds)
-    #    self.assertLess(score, out_of)
-    #    expected_vals = {"profile_id", "timeseries_id", "trajectory_id"}
-    #    expect_msg = (
-    #        'Platform variable "platform" must have a cf_role attribute '
-    #        "with one of the values {}".format(sorted(expected_vals))
-    #    )
-    #    self.assertEqual(results[0].msgs, [expect_msg])
-    #    # set to valid value
-    #    plat_var.setncattr("cf_role", "timeseries_id")
-    #    results = self.ioos.check_platform_variable_cf_role(ds)
-    #    score, out_of = results[0].value
-    #    self.assertEqual(score, out_of)
-
     def test_check_platform_global(self):
         ds = MockTimeSeries()  # time, lat, lon, depth
 
