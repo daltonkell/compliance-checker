@@ -1131,3 +1131,61 @@ class TestIOOS1_2(BaseTestCase):
         plat.setncattr("cf_role", "timeseries_id")
         result = self.ioos._check_feattype_timeseries_cf_role(ds)
         self.assertTrue(result.value)
+
+    def test_check_feattype_timeseriesprof_cf_role(self):
+        for ftype in ("timeseriesprofile", "timeseriesprofile - single station"):
+            ds = MockTimeSeries()  # time, lat, lon, depth
+            ds.setncattr("featureType", ftype)
+            ds.createDimension("station_dim", 1)
+            temp = ds.createVariable("temp", "d", ("time"))
+
+            # no platform variables or geophys vars with cf_role=timeseries_id, fail
+            result = self.ioos._check_feattype_timeseriesprof_cf_role(ds)
+            self.assertFalse(result.value)
+
+            # create dimensionless platform variable, set bad cf_role
+            plat = ds.createVariable("station", "|S1", ("station_dim"))
+            plat.setncattr("cf_role", "badbadbad")
+            ds.variables["temp"].setncattr("platform", "station")
+            
+            # should still fail as no vars with cf_role=timeseries_id or profile_id exist
+            result = self.ioos._check_feattype_timeseriesprof_cf_role(ds)
+            self.assertFalse(result.value)
+
+            # set correct cf_role on platform var, should still fail, no variable with profile_id
+            plat.setncattr("cf_role", "timeseries_id")
+            result = self.ioos._check_feattype_timeseriesprof_cf_role(ds)
+            self.assertFalse(result.value)
+
+            # add profile_id var with bad dim, fail
+            ds.createDimension("profile_dim", 0)
+            pf = ds.createVariable("profile", "|S1", ("profile_dim"))
+            pf.setncattr("cf_role", "profile_id")
+            result = self.ioos._check_feattype_timeseriesprof_cf_role(ds)
+            self.assertFalse(result.value)
+
+            # make the profile dim 1, no platform variable though
+            ds = MockTimeSeries()  # time, lat, lon, depth
+            ds.setncattr("featureType", ftype)
+            ds.createDimension("station_dim", 1)
+            ds.createDimension("profile_dim", 1)
+            temp = ds.createVariable("temp", "d", ("time"))
+            plat = ds.createVariable("station", "|S1", ("station_dim"))
+            plat.setncattr("cf_role", "timeseries_id")
+            pf = ds.createVariable("profile", "|S1", ("profile_dim"))
+            pf.setncattr("cf_role", "profile_id")
+            result = self.ioos._check_feattype_timeseriesprof_cf_role(ds)
+            self.assertTrue(result.value)
+
+            # profile dim > 1, pass
+            ds = MockTimeSeries()  # time, lat, lon, depth
+            ds.setncattr("featureType", ftype)
+            ds.createDimension("station_dim", 1)
+            ds.createDimension("profile_dim", 21)
+            temp = ds.createVariable("temp", "d", ("time"))
+            plat = ds.createVariable("station", "|S1", ("station_dim"))
+            plat.setncattr("cf_role", "timeseries_id")
+            pf = ds.createVariable("profile", "|S1", ("profile_dim"))
+            pf.setncattr("cf_role", "profile_id")
+            result = self.ioos._check_feattype_timeseriesprof_cf_role(ds)
+            self.assertTrue(result.value)

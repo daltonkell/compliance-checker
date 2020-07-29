@@ -848,7 +848,6 @@ class IOOS1_2Check(IOOSNCCheck):
         https://github.com/ioos/compliance-checker/issues/828
         """
 
-
         fType = getattr(ds, "featureType", None)
         if (not fType) or (not isinstance(fType, str)): # can't do anything, pass
             return Result(BaseCheck.MEDIUM, True, "cf_role variables", [])
@@ -856,8 +855,6 @@ class IOOS1_2Check(IOOSNCCheck):
 
         generic_msg = ("Dimension length of non-platform variable with cf_role={cf_role} "
                    " (the '{dim_type}' dimension) is {dim_len}.")
-        ts_prof_msg = ("The IOOS profile restricts timeSeriesProfile datasets to a "
-                       "single platform (ie. station) per dataset.")
 
         trj_prof_msg = ("The IOOS profile restricts trjectory and trajectoryProfile "
                         "datasets to a single platform (ie. trajectory) per dataset.")
@@ -870,40 +867,10 @@ class IOOS1_2Check(IOOSNCCheck):
             "timeseries - multiple station",
             "timeseries - single station",
             "timeseries"]:
-
             return self._check_feattype_timeseries_cf_role(ds)
 
-
         elif featType in ["timeseriesprofile", "timeseriesprofile - single station"]:
-
-            # TODO
-            #return self._check_feattype_timeseriesprof_cf_role(ds)
-            raise NotImplementedError
-
-            ## looking for cf_roles timeseries_id and profile_id
-            #cf_role_vars = [] # extend in specific order for easier checking
-            #cf_role_vars.extend(ds.get_variables_by_attributes(cf_role="timeseries_id"))
-            #cf_role_vars.extend(ds.get_variables_by_attributes(cf_role="profile_id"))
-
-            #if len(cf_role_vars) != 2:
-            #    return Result(BaseCheck.HIGH, False, sec_id, [
-            #        ("Datasets of featureType=timeSeriesProfile must have variables "
-            #         "containing cf_role=timeseries_id and cf_role=profile_id")])
-
-            ## platform variables?
-            #if all((v.name in platform_var_names for v in cf_role_vars)):
-            #    return good_result
-
-            #elif cf_role_vars[0].size != 1 or # timeseries_id
-            #   cf_role_vars[1].size < 1: # profile_id
-            #    return Result(BaseCheck.HIGH, False, sec_id, [
-            #        " ".join([
-            #            generic_msg.format(cf_role="timeseries_id", dim_type="station", dim_size=cf_role_vars[0].size),
-            #            generic_msg.format(cf_role="profile_id", dim_type="profile", dim_size=cf_role_vars[1].size),
-            #            ts_prof_msg])])
-            #       
-            #else:
-            #    return good_result
+            return self._check_feattype_timeseriesprof_cf_role(ds)
 
         elif featType == "trajectory":
 
@@ -992,8 +959,7 @@ class IOOS1_2Check(IOOSNCCheck):
 
     def _check_feattype_timeseries_cf_role(self, ds):
 
-        featType = getattr(ds, "featureType", "").lower() # already know that featureType exists
-
+        featType = getattr(ds, "featureTupe", "").lower()
         good_result = Result(BaseCheck.HIGH, True, "cf_role variables", [])
         generic_msg = ("Dimension length of non-platform variable with cf_role={cf_role} "
                    " (the '{dim_type}' dimension) is {dim_len}.")
@@ -1030,7 +996,7 @@ class IOOS1_2Check(IOOSNCCheck):
         if _v in platform_vars:
             return good_result
 
-        elif (featType=="timeseries" or featType=="timeseries - single station") and (_dimsize != 1):
+        elif _dimsize != 1:
             return Result(BaseCheck.HIGH, False, "cf_role variables", [
                 " ".join([
                     generic_msg.format(cf_role="timeseries_id", dim_type="station", dim_len=_dimsize),
@@ -1042,6 +1008,54 @@ class IOOS1_2Check(IOOSNCCheck):
                     generic_msg.format(cf_role="timeseries_id", dim_type="station", dim_len=_dimsize),
                     ts_msg, ts_multi_msg])])
 
+        else:
+            return good_result
+
+    def _check_feattype_timeseriesprof_cf_role(self, ds):
+
+        generic_msg = ("Dimension length of non-platform variable with cf_role={cf_role} "
+                   " (the '{dim_type}' dimension) is {dim_len}.")
+
+        ts_prof_msg = ("The IOOS profile restricts timeSeriesProfile datasets to a "
+                       "single platform (ie. station) per dataset.")
+
+        good_result = Result(BaseCheck.HIGH, True, "cf_role variables", [])
+
+        platform_vars = self._find_platform_vars(ds)
+
+        # looking for cf_roles timeseries_id and profile_id
+        cf_role_vars = [] # extend in specific order for easier checking
+        cf_role_vars.extend(ds.get_variables_by_attributes(cf_role="timeseries_id"))
+        cf_role_vars.extend(ds.get_variables_by_attributes(cf_role="profile_id"))
+
+        if len(cf_role_vars) != 2:
+            return Result(BaseCheck.HIGH, False, "cf_role variables", [
+                ("Datasets of featureType=timeSeriesProfile must have variables "
+                 "containing cf_role=timeseries_id and cf_role=profile_id")])
+
+        _ts_id_dims = cf_role_vars[0].get_dims() # timeseries_id dimensions
+        if not _ts_id_dims:
+            _ts_id_dimsize = 0
+        else:
+            _ts_id_dimsize = _ts_id_dims[0].size
+
+        _pf_id_dims = cf_role_vars[1].get_dims() # profilie_id dimensions
+        if not _pf_id_dims:
+            _pf_id_dimsize = 0
+        else:
+            _pf_id_dimsize = _pf_id_dims[0].size
+
+        # platform variables?
+        if cf_role_vars[0] in platform_vars and _pf_id_dimsize >= 1:
+            return good_result
+
+        elif _ts_id_dimsize != 1 or _pf_id_dimsize < 1:
+            return Result(BaseCheck.HIGH, False, "cf_role variables", [
+                " ".join([
+                    generic_msg.format(cf_role="timeseries_id", dim_type="station", dim_len=_ts_id_dimsize),
+                    generic_msg.format(cf_role="profile_id", dim_type="profile", dim_len=_pf_id_dimsize),
+                    ts_prof_msg])])
+               
         else:
             return good_result
 
