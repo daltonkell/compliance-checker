@@ -1075,3 +1075,59 @@ class TestIOOS1_2(BaseTestCase):
             nc_obj.variables["depth"].units = units
             result = self.ioos.check_vertical_coordinates(nc_obj)[0]
             self.assertEqual(*result.value)
+
+    def test_check_feattype_timeseries_cf_role(self):
+
+        ### featureType: timeseries and timeseries - msingle station require same tests ###
+
+        for ftype in ("timeseries", "timeseries - single station", "timeseries - multiple station"):
+            ds = MockTimeSeries()  # time, lat, lon, depth
+            ds.setncattr("featureType", ftype)
+            temp = ds.createVariable("temp", "d", ("time"))
+
+            # no platform variables or geophys vars with cf_role=timeseries_id, fail
+            result = self.ioos._check_feattype_timeseries_cf_role(ds)
+            self.assertFalse(result.value)
+
+            # create dimensionless platform variable, set bad cf_role
+            plat = ds.createVariable("station", "|S1", ())
+            plat.setncattr("cf_role", "badbadbad")
+            ds.variables["temp"].setncattr("platform", "station")
+            
+            # should still fail as no vars with cf_role=timeseries_id exist
+            result = self.ioos._check_feattype_timeseries_cf_role(ds)
+            self.assertFalse(result.value)
+
+            # set correct cf_role on platform var, should pass
+            plat.setncattr("cf_role", "timeseries_id")
+            result = self.ioos._check_feattype_timeseries_cf_role(ds)
+            self.assertTrue(result.value)
+
+            # remove platform variable, put cf_role on variable "station", should fail as dim = 0
+            ds = MockTimeSeries()  # time, lat, lon, depth
+            ds.setncattr("featureType", ftype)
+            temp = ds.createVariable("temp", "d", ("time"))
+            plat = ds.createVariable("station", "|S1", ())
+            plat.setncattr("cf_role", "timeseries_id")
+            result = self.ioos._check_feattype_timeseries_cf_role(ds)
+            self.assertFalse(result.value)
+
+            # remove cf_role from station variable, put it on another with dim = 1
+            ds = MockTimeSeries()  # time, lat, lon, depth
+            ds.createDimension("station_dim", 1)
+            ds.setncattr("featureType", ftype)
+            temp = ds.createVariable("temp", "d", ("time"))
+            plat = ds.createVariable("station", "|S1", dimensions=("station_dim"))
+            plat.setncattr("cf_role", "timeseries_id")
+            result = self.ioos._check_feattype_timeseries_cf_role(ds)
+            self.assertTrue(result.value)
+
+        ### featureType = timeseries - multiple station can have cf_role be on a var with dim >= 1 ###
+        ds = MockTimeSeries()  # time, lat, lon, depth
+        ds.createDimension("station_dim", 21)
+        ds.setncattr("featureType", "timeseries - multiple station")
+        temp = ds.createVariable("temp", "d", ("time"))
+        plat = ds.createVariable("station", "|S1", dimensions=("station_dim"))
+        plat.setncattr("cf_role", "timeseries_id")
+        result = self.ioos._check_feattype_timeseries_cf_role(ds)
+        self.assertTrue(result.value)

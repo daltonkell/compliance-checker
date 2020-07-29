@@ -856,10 +856,6 @@ class IOOS1_2Check(IOOSNCCheck):
 
         generic_msg = ("Dimension length of non-platform variable with cf_role={cf_role} "
                    " (the '{dim_type}' dimension) is {dim_len}.")
-
-        ts_multi_msg =  ("Datasets with featureType='timeseries - multiple station' are permitted "
-                         "to have variables with a cf_role=timeseries_id have a dimension >= 1")
-
         ts_prof_msg = ("The IOOS profile restricts timeSeriesProfile datasets to a "
                        "single platform (ie. station) per dataset.")
 
@@ -935,7 +931,7 @@ class IOOS1_2Check(IOOSNCCheck):
             #else:
             #    return good_result
 
-        elif featType == "trajectoryprofile"
+        elif featType == "trajectoryprofile":
 
             # TODO
             #return self._check_feattype_trajprof_cf_role(ds)
@@ -996,6 +992,8 @@ class IOOS1_2Check(IOOSNCCheck):
 
     def _check_feattype_timeseries_cf_role(self, ds):
 
+        featType = getattr(ds, "featureType", "").lower() # already know that featureType exists
+
         good_result = Result(BaseCheck.HIGH, True, "cf_role variables", [])
         generic_msg = ("Dimension length of non-platform variable with cf_role={cf_role} "
                    " (the '{dim_type}' dimension) is {dim_len}.")
@@ -1005,6 +1003,10 @@ class IOOS1_2Check(IOOSNCCheck):
                   "(i.e. to exist on the same platform). Datasets that include multiple "
                   "platforms are not valid and will cause harvesting errors.")
 
+        ts_multi_msg =  ("Datasets with featureType='timeseries - multiple station' are permitted "
+                         "to have variables with a cf_role=timeseries_id have a dimension >= 1")
+
+
         platform_vars = self._find_platform_vars(ds)
 
         # looking for cf_role=timeseries_id
@@ -1013,26 +1015,31 @@ class IOOS1_2Check(IOOSNCCheck):
             return Result(
                 BaseCheck.MEDIUM,
                 False,
-                sec_id,
+                "cf_role variables",
                 ["None or multiple variables found with cf_role=timeseries_id; only one is allowed"]
                 )
 
-        _v = cf_role_variables[0]
+        _v = cf_role_vars[0]
+        _dims = _v.get_dims()
+        if not _dims:
+            _dimsize = 0
+        else:
+            _dimsize = _dims[0].size
 
         # is this a platform variable?
         if _v in platform_vars:
             return good_result
 
-        elif (featType=="timeseries" or featType=="timeseries - single station") and _v.size != 1:
+        elif (featType=="timeseries" or featType=="timeseries - single station") and (_dimsize != 1):
             return Result(BaseCheck.HIGH, False, "cf_role variables", [
                 " ".join([
-                    generic_msg.format(cf_role="timeseries_id", dim_type="station", dim_size=_v.size),
+                    generic_msg.format(cf_role="timeseries_id", dim_type="station", dim_len=_dimsize),
                     ts_msg])])
                 
-        elif (featType=="timeseries - multiple station") and _v.size < 1:
+        elif (featType=="timeseries - multiple station") and _dimsize < 1:
             return Result(BaseCheck.HIGH, False, "cf_role variables", [
                 " ".join([
-                    generic_msg.format(cf_role="timeseries_id", dim_type="station", dim_size=_v.size),
+                    generic_msg.format(cf_role="timeseries_id", dim_type="station", dim_len=_dimsize),
                     ts_msg, ts_multi_msg])])
 
         else:
