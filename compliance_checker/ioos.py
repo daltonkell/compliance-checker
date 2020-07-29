@@ -873,33 +873,9 @@ class IOOS1_2Check(IOOSNCCheck):
             return self._check_feattype_timeseriesprof_cf_role(ds)
 
         elif featType == "trajectory":
-
-            # TODO
-            #return self._check_feattype_trajectory_cf_role(ds)
-            raise NotImplementedError
-
-            #cf_role_vars = ds.get_variables_by_attributes(cf_role="trajectory_id")
-
-            #if len(cf_role_vars) != 1:
-            #    return Result(BaseCheck.HIGH, False, sec_id, [
-            #        ("Datasets of featureType=trajectory must have a variable "
-            #         "containing cf_role=trajectory_id")])
-
-            #_v = cf_role_vars[0]
-            ## platform variable?
-            #if _v.name in platform_var_names:
-            #    return good_result
-
-            #elif _v.size != 1:
-            #    return Result(BaseCheck.HIGH, False, sec_id, [
-            #        " ".join([
-            #            generic_msg.format(cf_role="trajectory_id", dim_type="station", dim_size=_v.size),
-            #            trj_prof_msg])])
-            #else:
-            #    return good_result
+            return self._check_feattype_trajectory_cf_role(ds)
 
         elif featType == "trajectoryprofile":
-
             # TODO
             #return self._check_feattype_trajprof_cf_role(ds)
             raise NotImplementedError
@@ -1056,6 +1032,37 @@ class IOOS1_2Check(IOOSNCCheck):
                     generic_msg.format(cf_role="profile_id", dim_type="profile", dim_len=_pf_id_dimsize),
                     ts_prof_msg])])
                
+        else:
+            return good_result
+
+    def _check_feattype_trajectory_cf_role(self, ds):
+        featType = getattr(ds, "featureType", "").lower()
+        generic_msg = ("Dimension length of non-platform variable with cf_role={cf_role} "
+                   " (the '{dim_type}' dimension) is {dim_len}.")
+
+        trj_prof_msg = ("The IOOS profile restricts trjectory and trajectoryProfile "
+                        "datasets to a single platform (ie. trajectory) per dataset.")
+        good_result = Result(BaseCheck.HIGH, True, "cf_role variables", [])
+
+        cf_role_vars = ds.get_variables_by_attributes(cf_role="trajectory_id")
+
+        if len(cf_role_vars) != 1:
+            return Result(BaseCheck.HIGH, False, "cf_role variables", [
+                ("Datasets of featureType=trajectory must have a variable "
+                 "containing cf_role=trajectory_id")])
+
+        _v = cf_role_vars[0]
+        _dims = _v.get_dims()
+        if not _dims:
+            _dimsize = 0
+        else:
+            _dimsize = _dims[0].size
+
+        if _dimsize != 1:
+            return Result(BaseCheck.HIGH, False, "cf_role variables", [
+                " ".join([
+                    generic_msg.format(cf_role="trajectory_id", dim_type="station", dim_len=_dimsize),
+                    trj_prof_msg])])
         else:
             return good_result
 
