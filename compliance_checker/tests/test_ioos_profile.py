@@ -1218,3 +1218,58 @@ class TestIOOS1_2(BaseTestCase):
         trj.setncattr("cf_role", "trajectory_id")
         result = self.ioos._check_feattype_trajectory_cf_role(ds)
         self.assertTrue(result.value)
+
+    def test_check_feattype_trajectoryprof_cf_role(self):
+            ds = MockTimeSeries()  # time, lat, lon, depth
+            ds.setncattr("featureType", "trajectoryprofile")
+            ds.createDimension("trajectory_dim", 1)
+
+            # no platform variables or geophys vars with cf_role=timeseries_id, fail
+            result = self.ioos._check_feattype_trajectoryprof_cf_role(ds)
+            self.assertFalse(result.value)
+
+            # create dimensionless platform variable, set bad cf_role
+            trj = ds.createVariable("station", "|S1", ("trajectory_dim"))
+            trj.setncattr("cf_role", "badbadbad")
+            
+            # should still fail as no vars with cf_role=timeseries_id or profile_id exist
+            result = self.ioos._check_feattype_trajectoryprof_cf_role(ds)
+            self.assertFalse(result.value)
+
+            # set correct cf_role on platform var, should still fail, no variable with profile_id
+            trj.setncattr("cf_role", "trajectory_id")
+            result = self.ioos._check_feattype_trajectoryprof_cf_role(ds)
+            self.assertFalse(result.value)
+
+            # add profile_id var with bad dim, fail
+            ds.createDimension("profile_dim", 0)
+            pf = ds.createVariable("profile", "|S1", ("profile_dim"))
+            pf.setncattr("cf_role", "profile_id")
+            result = self.ioos._check_feattype_trajectoryprof_cf_role(ds)
+            self.assertFalse(result.value)
+
+            # make the profile dim 1, no platform variable though
+            ds = MockTimeSeries()  # time, lat, lon, depth
+            ds.setncattr("featureType", "trajectoryprofile")
+            ds.createDimension("trajectory_dim", 1)
+            ds.createDimension("profile_dim", 1)
+            temp = ds.createVariable("temp", "d", ("time"))
+            trj = ds.createVariable("trajectory", "|S1", ("trajectory_dim"))
+            trj.setncattr("cf_role", "trajectory_id")
+            pf = ds.createVariable("profile", "|S1", ("profile_dim"))
+            pf.setncattr("cf_role", "profile_id")
+            result = self.ioos._check_feattype_trajectoryprof_cf_role(ds)
+            self.assertTrue(result.value)
+
+            # profile dim > 1, pass
+            ds = MockTimeSeries()  # time, lat, lon, depth
+            ds.setncattr("featureType", "trajectoryprofile")
+            ds.createDimension("trajectory_dim", 1)
+            ds.createDimension("profile_dim", 21)
+            temp = ds.createVariable("temp", "d", ("time"))
+            trj = ds.createVariable("trajectory", "|S1", ("trajectory_dim"))
+            trj.setncattr("cf_role", "trajectory_id")
+            pf = ds.createVariable("profile", "|S1", ("profile_dim"))
+            pf.setncattr("cf_role", "profile_id")
+            result = self.ioos._check_feattype_trajectoryprof_cf_role(ds)
+            self.assertTrue(result.value)
